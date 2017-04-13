@@ -40,7 +40,7 @@ module.exports = function processJS({ absolutePath, clientAlias }, resolveFileNa
         }
 
         const requiredPath = nodePath.node.arguments[0].value;
-        dependencies.push(resolveFileName(absolutePath, requiredPath));
+        dependencies.push(Object.assign({ originator: absolutePath }, resolveFileName(absolutePath, requiredPath)));
       }
     },
   });

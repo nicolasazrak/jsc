@@ -3,6 +3,7 @@ const path = require('path');
 const resolveFileName = require('./resolver');
 const processJS = require('./processors/javascript.js');
 const processCSS = require('./processors/css.js');
+const processCSON = require('./processors/cson.js');
 
 
 const resolverCode = fs.readFileSync(path.join(__dirname, 'runtime/resolver.js')).toString();
@@ -55,6 +56,8 @@ class JSC {
         return processJS;
       case '.css':
         return processCSS;
+      case '.cson':
+        return processCSON;
       default:
         throw new Error(`Missing processor to handle file of type: ${extension} from file: ${filePath}`);
     }
@@ -127,7 +130,7 @@ class JSC {
     this.ensureDirectoryExistence('.jsc/bundle.js');
     this.addToBundle(resolverCode);
     this.addToBundle(runtimeCode);
-    this.parseTree({ absolutePath, clientAlias: absolutePath });
+    this.parseTree({ absolutePath, clientAlias: absolutePath, originator: absolutePath });
     this.addEntryPoint(absolutePath);
   }
 
