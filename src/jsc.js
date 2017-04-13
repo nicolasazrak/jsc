@@ -1,87 +1,18 @@
 const fs = require('fs');
 const path = require('path');
-const babel = require('babel-core');
-const babylon = require('babylon');
-const traverse = require('babel-traverse').default;
+const resolveFileName = require('./resolver');
+const processJS = require('./processors/javascript.js');
+const processCSS = require('./processors/css.js');
 
-const wrapperCode = fs.readFileSync(path.join(__dirname, 'runtime/wrapper.js')).toString();
+
 const resolverCode = fs.readFileSync(path.join(__dirname, 'runtime/resolver.js')).toString();
 const runtimeCode = fs.readFileSync(path.join(__dirname, 'runtime/runtime.js')).toString();
 
-
-function resolveFileName(from, to) {
-  const divisor = '/';
-
-  if (!to.includes(divisor)) {
-    const packageDefinition = JSON.parse(fs.readFileSync(`node_modules/${to}/package.json`));
-    return {
-      absolutePath: `./node_modules/${to}/${packageDefinition.main || 'index.js'}`,
-      clientAlias: `./node_modules/${to}`,
-    };
-  }
-
-  if (to[to.length - 1] === divisor) {
-    to = `${to}index.js`; // eslint-disable-line
-  }
-
-  if (path.extname(to) === '') {
-    to = `${to}.js`; // eslint-disable-line
-  }
-
-  if (to[0] !== '.') {
-    return {
-      absolutePath: `./node_modules/${to}`,
-      clientAlias: `./node_modules/${to}`,
-    };
-  }
-
-  return {
-    absolutePath: `./${path.join(path.dirname(from), to)}`,
-    clientAlias: `./${path.join(path.dirname(from), to)}`,
-  };
-}
-
-
-function processJS({ absolutePath, clientAlias }) {
-  let ast;
-  let code;
-
-  if (absolutePath.startsWith('./node_modules/')) {
-    code = fs.readFileSync(absolutePath).toString();
-    ast = babylon.parse(code, {
-      sourceType: 'module',
-    });
-  } else {
-    const transpiled = babel.transformFileSync(absolutePath, {
-      plugins: [
-        'transform-es2015-arrow-functions',
-        'transform-es2015-destructuring',
-        'transform-es2015-modules-commonjs',
-        'transform-react-jsx',
-      ],
-    });
-    ast = transpiled.ast;
-    code = transpiled.code;
-  }
-
-
-  const dependencies = [];
-  traverse(ast, {
-    CallExpression(nodePath) {
-      if (nodePath.node.callee.name === 'require') {
-          // TODO check value is a string
-        const requiredPath = nodePath.node.arguments[0].value;
-        dependencies.push(resolveFileName(absolutePath, requiredPath));
-      }
-    },
-  });
-
-  let wrappedCode = wrapperCode.replace('__MODULE__CODE__', () => code);
-  wrappedCode = wrappedCode.replace('__MODULE_NAME__', () => JSON.stringify({ absolutePath, clientAlias }));
-
-  return { code: wrappedCode, dependencies };
-}
-
+const wrapperCode = `
+registerModule(__MODULE_NAME__, function(require, module, exports) {
+  __MODULE__CODE__
+});
+`;
 
 class JSC {
 
@@ -104,18 +35,11 @@ class JSC {
 
   getMetadataFromCache(outPath, metadataPath, filePath) {
     // TODO save mtime in metadata file to avoid reading two files
+    const currentMTime = fs.statSync(filePath).mtime;
     try {
-      const cacheMTime = fs.statSync(outPath).mtime;
-      const currentMTime = fs.statSync(filePath).mtime;
-
-      if (cacheMTime > currentMTime) {
-        try {
-          return JSON.parse(fs.readFileSync(metadataPath));
-        } catch (e) {
-          if (e.code !== 'ENOENT') {
-            throw e;
-          }
-        }
+      const metadata = JSON.parse(fs.readFileSync(metadataPath));
+      if (metadata.MTime >= currentMTime) {
+        return metadata;
       }
     } catch (e) {
       if (e.code !== 'ENOENT') {
@@ -123,6 +47,23 @@ class JSC {
       }
     }
     return undefined;
+  }
+
+  getProcessor(extension, filePath) {
+    switch (extension) {
+      case '.js':
+        return processJS;
+      case '.css':
+        return processCSS;
+      default:
+        throw new Error(`Missing processor to handle file of type: ${extension} from file: ${filePath}`);
+    }
+  }
+
+  wrapCode(dependency, code) {
+    let wrappedCode = wrapperCode.replace('__MODULE__CODE__', () => code);
+    wrappedCode = wrappedCode.replace('__MODULE_NAME__', () => JSON.stringify({ absolutePath: dependency.absolutePath, clientAlias: dependency.clientAlias }));
+    return wrappedCode;
   }
 
   processFile(dependency) {
@@ -134,15 +75,16 @@ class JSC {
     const cachedMatadata = this.getMetadataFromCache(outPath, metadataPath, absolutePath);
 
     if (cachedMatadata) {
-      this.addToBundle(fs.readFileSync(outPath));
+      this.addToBundle(this.wrapCode(dependency, fs.readFileSync(outPath).toString()));
       return cachedMatadata;
     }
 
-    const { code, dependencies } = processJS(dependency);
-    const metadata = { dependencies };
+    const processor = this.getProcessor(path.extname(dependency.absolutePath), dependency.absolutePath);
+    const { code, dependencies } = processor(dependency, resolveFileName);
+    const metadata = { dependencies, MTime: new Date().getTime() };
 
     this.ensureDirectoryExistence(outPath);
-    this.addToBundle(code);
+    this.addToBundle(this.wrapCode(dependency, code));
     fs.writeFileSync(outPath, code);
     fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
@@ -192,8 +134,4 @@ class JSC {
 }
 
 
-module.exports = {
-  JSC,
-  resolveFileName,
-  processJS,
-};
+module.exports = JSC;

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const path = require('path');
+const JSC = require('./jsc.js');
 const process = require('process');
-const { JSC } = require('./jsc.js');
 
 
 const argv = process.argv;
