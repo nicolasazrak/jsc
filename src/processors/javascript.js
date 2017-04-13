@@ -31,7 +31,14 @@ module.exports = function processJS({ absolutePath, clientAlias }, resolveFileNa
   traverse(ast, {
     CallExpression(nodePath) {
       if (nodePath.node.callee.name === 'require') {
-          // TODO check value is a string
+        if (!nodePath.node.arguments[0]) {
+          throw nodePath.buildCodeFrameError('Missing required module');
+        }
+
+        if (nodePath.node.arguments[0].type !== 'StringLiteral') {
+          throw nodePath.buildCodeFrameError('Dynamic Imports not supported (yet)');
+        }
+
         const requiredPath = nodePath.node.arguments[0].value;
         dependencies.push(resolveFileName(absolutePath, requiredPath));
       }

@@ -6,11 +6,18 @@ module.exports = function resolveFileName(from, to) {
   const divisor = '/';
 
   if (!to.includes(divisor)) {
-    const packageDefinition = JSON.parse(fs.readFileSync(`node_modules/${to}/package.json`));
-    return {
-      absolutePath: `./node_modules/${to}/${packageDefinition.main || 'index.js'}`,
-      clientAlias: `./node_modules/${to}`,
-    };
+    try {
+      const packageDefinition = JSON.parse(fs.readFileSync(`node_modules/${to}/package.json`));
+      return {
+        absolutePath: `./node_modules/${to}/${packageDefinition.main || 'index.js'}`,
+        clientAlias: `./node_modules/${to}`,
+      };
+    } catch (e) {
+      if (e.code === 'ENOENT') {
+        throw new Error(`Missing module ${to}. You might need to add it to your package.json`);
+      }
+      throw e;
+    }
   }
 
   if (to[to.length - 1] === divisor) {
