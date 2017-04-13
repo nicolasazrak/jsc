@@ -2,6 +2,9 @@ let modules = {};
 
 
 function registerModule(name, initializer) {
+  if (modules.hasOwnProperty(name)) {
+    throw new Error('Module ' + name + ' is already defined');
+  }
   modules[name] = {
     initializer,
     exported: null,

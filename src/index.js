@@ -12,7 +12,10 @@ function resolveFileName(from, to) {
 
   if (!to.includes(divisor)) {
     const packageDefinition = JSON.parse(fs.readFileSync(`node_modules/${to}/package.json`));
-    return `./node_modules/${to}/${packageDefinition.main}`;
+    return {
+      absolutePath: `./node_modules/${to}/${packageDefinition.main || 'index.js'}`,
+      clientAlias: `./node_modules/${to}`,
+    };
   }
 
   if (to[to.length - 1] === divisor) {
@@ -24,10 +27,16 @@ function resolveFileName(from, to) {
   }
 
   if (to[0] !== '.') {
-    return `./node_modules/${to}`;
+    return {
+      absolutePath: `./node_modules/${to}`,
+      clientAlias: `./node_modules/${to}`,
+    };
   }
 
-  return `./${path.join(path.dirname(from), to)}`;
+  return {
+    absolutePath:  `./${path.join(path.dirname(from), to)}`,
+    clientAlias:  `./${path.join(path.dirname(from), to)}`,
+  };
 }
 
 
@@ -46,6 +55,7 @@ function processJS(filePath) {
         'transform-es2015-arrow-functions',
         'transform-es2015-destructuring',
         'transform-es2015-modules-commonjs',
+        'transform-react-jsx',
       ],
     });
     ast = transpiled.ast;
@@ -59,7 +69,7 @@ function processJS(filePath) {
       if (nodePath.node.callee.name === 'require') {
           // TODO check value is a string
         const requiredPath = nodePath.node.arguments[0].value;
-        dependencies.push(resolveFileName(filePath, requiredPath));
+        dependencies.push(resolveFileName(filePath, requiredPath).absolutePath);
       }
     },
   });
@@ -72,6 +82,10 @@ function processJS(filePath) {
 
 
 class JSC {
+
+  constructor() {
+    this.processedFiles = [];
+  }
 
   ensureDirectoryExistence(filePath) {
     const dirname = path.dirname(filePath);
@@ -110,6 +124,7 @@ class JSC {
   }
 
   processFile(filePath) {
+    console.log('Processing ', filePath);
     const outPath = path.join('.jsc', filePath);
     const metadataPath = path.join('.jsc', `${filePath}.metadata.json`);
     const cachedMatadata = this.getMetadataFromCache(outPath, metadataPath, filePath);
@@ -131,12 +146,16 @@ class JSC {
   }
 
   parseTree(initialPath, callStack = []) {
+    if (this.processedFiles.includes(initialPath)) {
+      return;
+    }
     if (callStack.indexOf(initialPath) !== -1) {
       throw new Error(`Error requiring '${initialPath}'. It was already required by another module. It has a cyclic dependency`);
     }
 
     const { dependencies } = this.processFile(initialPath);
     dependencies.forEach(d => this.parseTree(d, callStack.concat([initialPath])));
+    this.processedFiles.push(initialPath);
   }
 
   createBundleFrom(initialPath) {
