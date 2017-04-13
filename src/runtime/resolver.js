@@ -1,12 +1,12 @@
 function join(/* path segments */) {
   // Split the inputs into a list of path commands.
   let parts = [];
-  for (const i = 0, l = arguments.length; i < l; i++) {
+  for (let i = 0, l = arguments.length; i < l; i++) {
     parts = parts.concat(arguments[i].split('/'));
   }
   // Interpret the path commands to get the new resolved path.
   const newParts = [];
-  for (const i = 0, l = parts.length; i < l; i++) {
+  for (let i = 0, l = parts.length; i < l; i++) {
     const part = parts[i];
     // Remove leading and trailing slashes
     // Also remove "." segments
@@ -22,22 +22,37 @@ function join(/* path segments */) {
   return newParts.join('/') || (newParts.length ? '/' : '.');
 }
 
-
 function resolveFileName(from, to) {
+  var divisor = '/';
+
+  if (to.indexOf(divisor) === -1) {
+    return './node_modules/' + to;
+  }
+
   if (to.endsWith('/')) {
-    to = `${to}index.js`; // eslint-disable-line
+    to = to + 'index.js';
   }
 
-  const parts = to.split('/');
-  if (parts[parts.length - 1] === '') {
-    to = `${to}.js`; // eslint-disable-line
+  var parts = to.split('/');
+  var dots = parts[parts.length - 1].split('.');
+  if (dots.length === 1) {
+    to = to + '.js';
   }
 
-  if (!to.startsWith('.')) {
-    return `./node_modules/${to}`;
+  if (to[0] !== '.') {
+    return './node_modules/' + to;
   }
 
-  const fromParts = from.split();
+  let fromParts = from.split('/');
   fromParts.pop();
-  return `./${join(fromParts.join('/'), to)}`;
+  return './' + join(fromParts.join('/'), to);
 }
+
+
+try {
+  if (module) {
+    module.exports = {
+      resolveFileName: resolveFileName
+    };
+  }
+} catch (e) {}

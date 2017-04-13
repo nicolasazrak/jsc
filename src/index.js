@@ -34,23 +34,23 @@ function resolveFileName(from, to) {
   }
 
   return {
-    absolutePath:  `./${path.join(path.dirname(from), to)}`,
-    clientAlias:  `./${path.join(path.dirname(from), to)}`,
+    absolutePath: `./${path.join(path.dirname(from), to)}`,
+    clientAlias: `./${path.join(path.dirname(from), to)}`,
   };
 }
 
 
-function processJS(filePath) {
+function processJS({ absolutePath, clientAlias }) {
   let ast;
   let code;
 
-  if (filePath.startsWith('./node_modules/')) {
-    code = fs.readFileSync(filePath).toString();
+  if (absolutePath.startsWith('./node_modules/')) {
+    code = fs.readFileSync(absolutePath).toString();
     ast = babylon.parse(code, {
       sourceType: 'module',
     });
   } else {
-    const transpiled = babel.transformFileSync(filePath, {
+    const transpiled = babel.transformFileSync(absolutePath, {
       plugins: [
         'transform-es2015-arrow-functions',
         'transform-es2015-destructuring',
@@ -69,13 +69,13 @@ function processJS(filePath) {
       if (nodePath.node.callee.name === 'require') {
           // TODO check value is a string
         const requiredPath = nodePath.node.arguments[0].value;
-        dependencies.push(resolveFileName(filePath, requiredPath).absolutePath);
+        dependencies.push(resolveFileName(absolutePath, requiredPath));
       }
     },
   });
 
   let wrappedCode = wrapperCode.replace('__MODULE__CODE__', () => code);
-  wrappedCode = wrappedCode.replace('__MODULE_NAME__', () => filePath);
+  wrappedCode = wrappedCode.replace('__MODULE_NAME__', () => JSON.stringify({ absolutePath, clientAlias }));
 
   return { code: wrappedCode, dependencies };
 }
@@ -123,18 +123,20 @@ class JSC {
     return undefined;
   }
 
-  processFile(filePath) {
-    console.log('Processing ', filePath);
-    const outPath = path.join('.jsc', filePath);
-    const metadataPath = path.join('.jsc', `${filePath}.metadata.json`);
-    const cachedMatadata = this.getMetadataFromCache(outPath, metadataPath, filePath);
+  processFile(dependency) {
+    const { absolutePath } = dependency;
+
+    console.log('Processing ', absolutePath);
+    const outPath = path.join('.jsc', absolutePath);
+    const metadataPath = path.join('.jsc', `${absolutePath}.metadata.json`);
+    const cachedMatadata = this.getMetadataFromCache(outPath, metadataPath, absolutePath);
 
     if (cachedMatadata) {
       this.addToBundle(fs.readFileSync(outPath));
       return cachedMatadata;
     }
 
-    const { code, dependencies } = processJS(filePath);
+    const { code, dependencies } = processJS(dependency);
     const metadata = { dependencies };
 
     this.ensureDirectoryExistence(outPath);
@@ -145,17 +147,18 @@ class JSC {
     return metadata;
   }
 
-  parseTree(initialPath, callStack = []) {
-    if (this.processedFiles.includes(initialPath)) {
+  parseTree(dependency, callStack = []) {
+    const { absolutePath } = dependency;
+    if (this.processedFiles.includes(absolutePath)) {
       return;
     }
-    if (callStack.indexOf(initialPath) !== -1) {
-      throw new Error(`Error requiring '${initialPath}'. It was already required by another module. It has a cyclic dependency`);
+    if (callStack.indexOf(absolutePath) !== -1) {
+      throw new Error(`Error requiring '${absolutePath}'. It was already required by another module. It has a cyclic dependency`);
     }
 
-    const { dependencies } = this.processFile(initialPath);
-    dependencies.forEach(d => this.parseTree(d, callStack.concat([initialPath])));
-    this.processedFiles.push(initialPath);
+    const { dependencies } = this.processFile(dependency);
+    dependencies.forEach(d => this.parseTree(d, callStack.concat(absolutePath)));
+    this.processedFiles.push(absolutePath);
   }
 
   createBundleFrom(initialPath) {
@@ -168,8 +171,9 @@ class JSC {
     }
 
     this.ensureDirectoryExistence('.jsc/bundle.js');
+    this.addToBundle(fs.readFileSync(path.join(__dirname, 'runtime/resolver.js')).toString());
     this.addToBundle(fs.readFileSync(path.join(__dirname, 'runtime/runtime.js')).toString());
-    this.parseTree(initialPath);
+    this.parseTree({ absolutePath: initialPath, clientAlias: initialPath });
 
     // require("./samples/")("./a.js")
     this.addToBundle('require("./samples/")("./a.js")');
