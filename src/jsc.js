@@ -5,6 +5,8 @@ const babylon = require('babylon');
 const traverse = require('babel-traverse').default;
 
 const wrapperCode = fs.readFileSync(path.join(__dirname, 'runtime/wrapper.js')).toString();
+const resolverCode = fs.readFileSync(path.join(__dirname, 'runtime/resolver.js')).toString();
+const runtimeCode = fs.readFileSync(path.join(__dirname, 'runtime/runtime.js')).toString();
 
 
 function resolveFileName(from, to) {
@@ -161,7 +163,7 @@ class JSC {
     this.processedFiles.push(absolutePath);
   }
 
-  createBundleFrom(initialPath) {
+  cleanBundle() {
     try {
       fs.unlinkSync(path.join('.jsc', 'bundle.js'));
     } catch (e) {
@@ -169,14 +171,22 @@ class JSC {
         throw e;
       }
     }
+  }
 
+  addEntryPoint(absolutePath) {
+    const dirname = path.dirname(absolutePath);
+    const basename = path.basename(absolutePath);
+
+    this.addToBundle(`require("${dirname}/")("./${basename}")`);
+  }
+
+  createBundleFrom(absolutePath) {
+    this.cleanBundle();
     this.ensureDirectoryExistence('.jsc/bundle.js');
-    this.addToBundle(fs.readFileSync(path.join(__dirname, 'runtime/resolver.js')).toString());
-    this.addToBundle(fs.readFileSync(path.join(__dirname, 'runtime/runtime.js')).toString());
-    this.parseTree({ absolutePath: initialPath, clientAlias: initialPath });
-
-    // require("./samples/")("./a.js")
-    this.addToBundle('require("./samples/")("./a.js")');
+    this.addToBundle(resolverCode);
+    this.addToBundle(runtimeCode);
+    this.parseTree({ absolutePath, clientAlias: absolutePath });
+    this.addEntryPoint(absolutePath);
   }
 
 }
