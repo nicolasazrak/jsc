@@ -6,9 +6,11 @@
   "author": "Nicolas Azrak <azrak.nicolas@gmail.com>",
   "license": "GPL-3.0",
   "scripts": {
+    "compile": "tsc",
     "test": "mocha --recursive tests/"
   },
   "dependencies": {
+    "@types/node": "^7.0.12",
     "babel-core": "^6.24.1",
     "babel-plugin-transform-es2015-arrow-functions": "^6.22.0",
     "babel-plugin-transform-es2015-destructuring": "^6.23.0",
@@ -19,7 +21,8 @@
     "babel-types": "^6.24.1",
     "babylon": "^6.16.1",
     "cson": "^4.1.0",
-    "lodash": "^4.17.4"
+    "lodash": "^4.17.4",
+    "typescript": "^2.2.2"
   },
   "devDependencies": {
     "chai": "^3.5.0",

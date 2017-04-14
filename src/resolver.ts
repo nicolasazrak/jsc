@@ -1,13 +1,13 @@
-const fs = require('fs');
-const path = require('path');
+import * as fs from 'fs';
+import * as path from 'path';
 
 
-module.exports = function resolveFileName(from, to) {
+export default function resolveFileName(from, to) {
   const divisor = '/';
 
   if (!to.includes(divisor)) {
     try {
-      const packageDefinition = JSON.parse(fs.readFileSync(`node_modules/${to}/package.json`));
+      const packageDefinition = JSON.parse(fs.readFileSync(`node_modules/${to}/package.json`).toString());
       return {
         absolutePath: `./node_modules/${to}/${packageDefinition.main || 'index.js'}`,
         clientAlias: `./node_modules/${to}`,

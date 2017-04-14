@@ -1,3 +1,7 @@
 node_modules
 .jsc
 .vscode
+typings
+src/**/*.js
+src/**/*.js.map
+!src/runtime/**/*.js

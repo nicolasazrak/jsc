@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "target": "es2016",
+        "module": "commonjs",
+        "preserveConstEnums": true,
+        "sourceMap": true,
+        "allowJs": true
+    },
+    "compileOnSave": true,
+    "files": [
+      "src/cli.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "**/*.spec.ts"
+    ]
+}

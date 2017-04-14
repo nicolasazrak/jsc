@@ -16,7 +16,7 @@ const cssToJSContent = `
 `;
 
 
-module.exports = function processCSS({ originalCode }) {
+export default function processCSS({ originalCode }) {
   return {
     code: cssToJSContent.replace('__CONTENT__', () => originalCode.replace(/\n/g, '')),
     dependencies: [],

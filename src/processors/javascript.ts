@@ -1,9 +1,9 @@
-const babel = require('babel-core');
-const babylon = require('babylon');
-const traverse = require('babel-traverse').default;
+import * as babel from 'babel-core';
+import * as babylon from 'babylon';
+import traverse from 'babel-traverse';
 
 
-module.exports = function processJS({ originalCode, absolutePath, clientAlias }, resolveFileName) {
+export default function processJS({ originalCode, absolutePath, clientAlias }, resolveFileName) {
   let ast;
   let code;
 
@@ -39,7 +39,7 @@ module.exports = function processJS({ originalCode, absolutePath, clientAlias },
         }
 
         const requiredPath = nodePath.node.arguments[0].value;
-        dependencies.push(Object.assign({ originator: absolutePath }, resolveFileName(absolutePath, requiredPath)));
+        dependencies.push(resolveFileName(absolutePath, requiredPath));
       }
     },
   });

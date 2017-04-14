@@ -1,10 +1,20 @@
-const _ = require('lodash');
-const fs = require('fs');
-const path = require('path');
-const resolveFileName = require('./resolver');
-const processJS = require('./processors/javascript.js');
-const processCSS = require('./processors/css.js');
-const processCSON = require('./processors/cson.js');
+import * as _ from  'lodash';
+import * as path from  'path';
+import * as fs from  'fs';
+import resolveFileName from  './resolver';
+import processJS from  './processors/javascript.js';
+import processCSS from  './processors/css.js';
+import processCSON from  './processors/cson.js';
+
+
+
+type FilePath = string;
+type Proccessor = (Dependency, any) => any;
+type Dependency = {
+  absolutePath: FilePath,
+  clientAlias: string,
+  originalCode?: string
+};
 
 
 const resolverCode = fs.readFileSync(path.join(__dirname, 'runtime/resolver.js')).toString();
@@ -22,13 +32,17 @@ const processors = {
   '.cson': processCSON,
 };
 
-class JSC {
+
+
+export default class JSC {
+
+  processedFiles: FilePath[]
 
   constructor() {
     this.processedFiles = [];
   }
 
-  ensureDirectoryExistence(filePath) {
+  ensureDirectoryExistence(filePath: FilePath) {
     const dirname = path.dirname(filePath);
     if (fs.existsSync(dirname)) {
       return;
@@ -37,7 +51,7 @@ class JSC {
     fs.mkdirSync(dirname);
   }
 
-  addToBundle(content) {
+  addToBundle(content: string) {
     fs.appendFileSync(path.join('.jsc', 'bundle.js'), content);
   }
 
@@ -56,11 +70,11 @@ class JSC {
     return undefined;
   }
 
-  readFile(contentPath) {
+  readFile(contentPath: FilePath) {
     return fs.readFileSync(contentPath).toString();
   }
 
-  getProcessor(extension, filePath) {
+  getProcessor(extension: string, filePath: FilePath): Proccessor {
     if (Object.prototype.hasOwnProperty.call(processors, extension)) {
       return processors[extension];
     }
@@ -68,13 +82,13 @@ class JSC {
     throw new Error(`Missing processor to handle file of type: ${extension} from file: ${filePath}`);
   }
 
-  wrapCode(dependency, code) {
+  wrapCode(dependency: Dependency, code: string): string {
     let wrappedCode = wrapperCode.replace('__MODULE__CODE__', () => code);
     wrappedCode = wrappedCode.replace('__MODULE_NAME__', () => JSON.stringify({ absolutePath: dependency.absolutePath, clientAlias: dependency.clientAlias }));
     return wrappedCode;
   }
 
-  processFile(dependency, requiredBy) {
+  processFile(dependency: Dependency, requiredBy) {
     const { absolutePath } = dependency;
 
     console.log('Processing ', absolutePath, '<--- Required by ', requiredBy);
@@ -101,7 +115,7 @@ class JSC {
     return metadata;
   }
 
-  parseTree(dependency, callStack = []) {
+  parseTree(dependency: Dependency, callStack = []) {
     const { absolutePath } = dependency;
     if (this.processedFiles.includes(absolutePath)) {
       return;
@@ -125,23 +139,20 @@ class JSC {
     }
   }
 
-  addEntryPoint(absolutePath) {
+  addEntryPoint(absolutePath: FilePath) {
     const dirname = path.dirname(absolutePath);
     const basename = path.basename(absolutePath);
 
     this.addToBundle(`require("${dirname}/")("./${basename}")`);
   }
 
-  createBundleFrom(absolutePath) {
+  createBundleFrom(absolutePath: FilePath) {
     this.cleanBundle();
     this.ensureDirectoryExistence('.jsc/bundle.js');
     this.addToBundle(resolverCode);
     this.addToBundle(runtimeCode);
-    this.parseTree({ absolutePath, clientAlias: absolutePath, originator: absolutePath });
+    this.parseTree({ absolutePath, clientAlias: absolutePath });
     this.addEntryPoint(absolutePath);
   }
 
 }
-
-
-module.exports = JSC;

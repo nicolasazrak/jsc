@@ -1,11 +1,11 @@
-const CSON = require('cson');
+import * as CSON from 'cson';
 
 const csonToJSContent = `
   module.exports = __CONTENT__;
 `;
 
 
-module.exports = function processCSS({ originalCode }) {
+export default function processCSS({ originalCode }) {
   return {
     code: csonToJSContent.replace('__CONTENT__', () => JSON.stringify(CSON.parse(originalCode))),
     dependencies: [],
