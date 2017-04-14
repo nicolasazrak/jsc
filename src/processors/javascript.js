@@ -1,20 +1,19 @@
-const fs = require('fs');
 const babel = require('babel-core');
 const babylon = require('babylon');
 const traverse = require('babel-traverse').default;
 
 
-module.exports = function processJS({ absolutePath, clientAlias }, resolveFileName) {
+module.exports = function processJS({ originalCode, absolutePath, clientAlias }, resolveFileName) {
   let ast;
   let code;
 
   if (absolutePath.startsWith('./node_modules/')) {
-    code = fs.readFileSync(absolutePath).toString();
-    ast = babylon.parse(code, {
+    ast = babylon.parse(originalCode, {
       sourceType: 'module',
     });
+    code = originalCode;
   } else {
-    const transpiled = babel.transformFileSync(absolutePath, {
+    const transpiled = babel.transform(originalCode, {
       plugins: [
         'transform-es2015-arrow-functions',
         'transform-es2015-destructuring',

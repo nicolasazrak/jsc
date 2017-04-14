@@ -1,4 +1,3 @@
-const fs = require('fs');
 const CSON = require('cson');
 
 const csonToJSContent = `
@@ -6,10 +5,9 @@ const csonToJSContent = `
 `;
 
 
-module.exports = function processCSS({ absolutePath }) {
-  const csonContent = fs.readFileSync(absolutePath).toString().replace(/\n/g, '');
+module.exports = function processCSS({ originalCode }) {
   return {
-    code: csonToJSContent.replace('__CONTENT__', () => JSON.stringify(CSON.parse(csonContent))),
+    code: csonToJSContent.replace('__CONTENT__', () => JSON.stringify(CSON.parse(originalCode))),
     dependencies: [],
   };
 };

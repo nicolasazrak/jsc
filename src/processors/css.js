@@ -1,5 +1,3 @@
-const fs = require('fs');
-
 const cssToJSContent = `
   var css = '__CONTENT__',
   head = document.head || document.getElementsByTagName('head')[0],
@@ -18,10 +16,9 @@ const cssToJSContent = `
 `;
 
 
-module.exports = function processCSS({ absolutePath }) {
-  const cssContent = fs.readFileSync(absolutePath).toString().replace(/\n/g, '');
+module.exports = function processCSS({ originalCode }) {
   return {
-    code: cssToJSContent.replace('__CONTENT__', () => cssContent),
+    code: cssToJSContent.replace('__CONTENT__', () => originalCode.replace(/\n/g, '')),
     dependencies: [],
   };
 };

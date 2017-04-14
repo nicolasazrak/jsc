@@ -1,3 +1,4 @@
+const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
 const resolveFileName = require('./resolver');
@@ -14,6 +15,12 @@ registerModule(__MODULE_NAME__, function(require, module, exports) {
   __MODULE__CODE__
 });
 `;
+
+const processors = {
+  '.js': processJS,
+  '.css': processCSS,
+  '.cson': processCSON,
+};
 
 class JSC {
 
@@ -35,10 +42,9 @@ class JSC {
   }
 
   getMetadataFromCache(outPath, metadataPath, filePath) {
-    // TODO save mtime in metadata file to avoid reading two files
     const currentMTime = fs.statSync(filePath).mtime;
     try {
-      const metadata = JSON.parse(fs.readFileSync(metadataPath));
+      const metadata = JSON.parse(fs.readFileSync(metadataPath).toString());
       if (metadata.MTime >= currentMTime) {
         return metadata;
       }
@@ -50,17 +56,16 @@ class JSC {
     return undefined;
   }
 
+  readFile(contentPath) {
+    return fs.readFileSync(contentPath).toString();
+  }
+
   getProcessor(extension, filePath) {
-    switch (extension) {
-      case '.js':
-        return processJS;
-      case '.css':
-        return processCSS;
-      case '.cson':
-        return processCSON;
-      default:
-        throw new Error(`Missing processor to handle file of type: ${extension} from file: ${filePath}`);
+    if (Object.prototype.hasOwnProperty.call(processors, extension)) {
+      return processors[extension];
     }
+
+    throw new Error(`Missing processor to handle file of type: ${extension} from file: ${filePath}`);
   }
 
   wrapCode(dependency, code) {
@@ -69,10 +74,10 @@ class JSC {
     return wrappedCode;
   }
 
-  processFile(dependency) {
+  processFile(dependency, requiredBy) {
     const { absolutePath } = dependency;
 
-    console.log('Processing ', absolutePath);
+    console.log('Processing ', absolutePath, '<--- Required by ', requiredBy);
     const outPath = path.join('.jsc', absolutePath);
     const metadataPath = path.join('.jsc', `${absolutePath}.metadata.json`);
     const cachedMatadata = this.getMetadataFromCache(outPath, metadataPath, absolutePath);
@@ -82,13 +87,15 @@ class JSC {
       return cachedMatadata;
     }
 
-    const processor = this.getProcessor(path.extname(dependency.absolutePath), dependency.absolutePath);
-    const { code, dependencies } = processor(dependency, resolveFileName);
-    const metadata = { dependencies, MTime: new Date().getTime() };
+    const extension = path.extname(dependency.absolutePath);
+    const processor = this.getProcessor(extension, dependency.absolutePath);
+    dependency.originalCode = this.readFile(absolutePath);
+    const proccessed = processor(dependency, resolveFileName);
+    const metadata = { dependencies: proccessed.dependencies, MTime: new Date().getTime() };
 
     this.ensureDirectoryExistence(outPath);
-    this.addToBundle(this.wrapCode(dependency, code));
-    fs.writeFileSync(outPath, code);
+    this.addToBundle(this.wrapCode(dependency, proccessed.code));
+    fs.writeFileSync(outPath, proccessed.code);
     fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
     return metadata;
@@ -103,7 +110,7 @@ class JSC {
       throw new Error(`Error requiring '${absolutePath}'. It was already required by another module. It has a cyclic dependency`);
     }
 
-    const { dependencies } = this.processFile(dependency);
+    const { dependencies } = this.processFile(dependency, _.last(callStack));
     dependencies.forEach(d => this.parseTree(d, callStack.concat(absolutePath)));
     this.processedFiles.push(absolutePath);
   }
