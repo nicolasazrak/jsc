@@ -1,9 +1,10 @@
 import * as babel from 'babel-core';
 import * as babylon from 'babylon';
 import traverse from 'babel-traverse';
+import generate from 'babel-generator';
 
 
-export default function processJS({ originalCode, absolutePath, clientAlias }, resolveFileName) {
+export default function processJS({ originalCode, absolutePath, clientAlias }, resolver) {
   let ast;
   let code;
 
@@ -11,9 +12,9 @@ export default function processJS({ originalCode, absolutePath, clientAlias }, r
     ast = babylon.parse(originalCode, {
       sourceType: 'module',
     });
-    code = originalCode;
   } else {
     const transpiled = babel.transform(originalCode, {
+      code: false,
       plugins: [
         'transform-es2015-arrow-functions',
         'transform-es2015-destructuring',
@@ -22,9 +23,7 @@ export default function processJS({ originalCode, absolutePath, clientAlias }, r
       ],
     });
     ast = transpiled.ast;
-    code = transpiled.code;
   }
-
 
   const dependencies = [];
   traverse(ast, {
@@ -39,10 +38,17 @@ export default function processJS({ originalCode, absolutePath, clientAlias }, r
         }
 
         const requiredPath = nodePath.node.arguments[0].value;
-        dependencies.push(resolveFileName(absolutePath, requiredPath));
+        const resolvedPath = resolver.resolveFilename(absolutePath, requiredPath);
+        nodePath.node.arguments[0].value = resolvedPath; // Replace required module by it's absolute path
+        dependencies.push({ absolutePath: resolvedPath });
       }
     },
   });
 
-  return { code, dependencies };
+  return { 
+    // Generate docs at
+    // https://github.com/babel/babel/tree/7.0/packages/babel-generator
+    code: generate(ast, { /* options */ }, originalCode).code,
+    dependencies 
+  };
 };

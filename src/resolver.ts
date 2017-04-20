@@ -1,42 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as resolve from 'resolve';
 
 
-export default function resolveFileName(from, to) {
-  const divisor = '/';
+export default class Resolver {
 
-  if (!to.includes(divisor)) {
-    try {
-      const packageDefinition = JSON.parse(fs.readFileSync(`node_modules/${to}/package.json`).toString());
-      return {
-        absolutePath: `./node_modules/${to}/${packageDefinition.main || 'index.js'}`,
-        clientAlias: `./node_modules/${to}`,
-      };
-    } catch (e) {
-      if (e.code === 'ENOENT') {
-        throw new Error(`Missing module ${to}. You might need to add it to your package.json`);
-      }
-      throw e;
-    }
+  resolveFilename(from: string, to: string): string {
+    return resolve.sync(to, {
+      basedir: path.dirname(from)
+    });
   }
 
-  if (to[to.length - 1] === divisor) {
-    to = `${to}index.js`; // eslint-disable-line
-  }
-
-  if (path.extname(to) === '') {
-    to = `${to}.js`; // eslint-disable-line
-  }
-
-  if (to[0] !== '.') {
-    return {
-      absolutePath: `./node_modules/${to}`,
-      clientAlias: `./node_modules/${to}`,
-    };
-  }
-
-  return {
-    absolutePath: `./${path.join(path.dirname(from), to)}`,
-    clientAlias: `./${path.join(path.dirname(from), to)}`,
-  };
-};
+}

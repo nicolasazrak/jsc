@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'source-map-support/register'
 import * as path from 'path';
 import JSC from './jsc.js';
 import * as process from 'process';
@@ -18,4 +19,4 @@ if (!entryPoint.includes(cwd)) {
 
 
 const runner = new JSC();
-runner.createBundleFrom(`.${entryPoint.substring(cwd.length)}`);
+runner.createBundleFrom(entryPoint);

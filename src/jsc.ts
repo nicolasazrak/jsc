@@ -1,23 +1,20 @@
 import * as _ from  'lodash';
 import * as path from  'path';
 import * as fs from  'fs';
-import resolveFileName from  './resolver';
 import processJS from  './processors/javascript.js';
 import processCSS from  './processors/css.js';
 import processCSON from  './processors/cson.js';
-
+import Resolver from './resolver';
 
 
 type FilePath = string;
 type Proccessor = (Dependency, any) => any;
 type Dependency = {
   absolutePath: FilePath,
-  clientAlias: string,
   originalCode?: string
 };
 
 
-const resolverCode = fs.readFileSync(path.join(__dirname, 'runtime/resolver.js')).toString();
 const runtimeCode = fs.readFileSync(path.join(__dirname, 'runtime/runtime.js')).toString();
 
 const wrapperCode = `
@@ -84,8 +81,12 @@ export default class JSC {
 
   wrapCode(dependency: Dependency, code: string): string {
     let wrappedCode = wrapperCode.replace('__MODULE__CODE__', () => code);
-    wrappedCode = wrappedCode.replace('__MODULE_NAME__', () => JSON.stringify({ absolutePath: dependency.absolutePath, clientAlias: dependency.clientAlias }));
+    wrappedCode = wrappedCode.replace('__MODULE_NAME__', () => JSON.stringify(dependency.absolutePath));
     return wrappedCode;
+  }
+
+  getResolver() {
+    return new Resolver();
   }
 
   processFile(dependency: Dependency, requiredBy) {
@@ -104,7 +105,7 @@ export default class JSC {
     const extension = path.extname(dependency.absolutePath);
     const processor = this.getProcessor(extension, dependency.absolutePath);
     dependency.originalCode = this.readFile(absolutePath);
-    const proccessed = processor(dependency, resolveFileName);
+    const proccessed = processor(dependency, this.getResolver());
     const metadata = { dependencies: proccessed.dependencies, MTime: new Date().getTime() };
 
     this.ensureDirectoryExistence(outPath);
@@ -140,18 +141,14 @@ export default class JSC {
   }
 
   addEntryPoint(absolutePath: FilePath) {
-    const dirname = path.dirname(absolutePath);
-    const basename = path.basename(absolutePath);
-
-    this.addToBundle(`require("${dirname}/")("./${basename}")`);
+    this.addToBundle(`require("${absolutePath}")`);
   }
 
   createBundleFrom(absolutePath: FilePath) {
     this.cleanBundle();
     this.ensureDirectoryExistence('.jsc/bundle.js');
-    this.addToBundle(resolverCode);
     this.addToBundle(runtimeCode);
-    this.parseTree({ absolutePath, clientAlias: absolutePath });
+    this.parseTree({ absolutePath });
     this.addEntryPoint(absolutePath);
   }
 
