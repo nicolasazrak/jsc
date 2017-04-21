@@ -4,22 +4,28 @@ import traverse from 'babel-traverse';
 import generate from 'babel-generator';
 
 
-export default function processJS({ originalCode, absolutePath, clientAlias }, resolver) {
+export default function processJS({ originalCode, absolutePath }, resolver) {
   let ast;
   let code;
 
-  if (absolutePath.startsWith('./node_modules/')) {
+  if (absolutePath.includes('/node_modules/')) {
     ast = babylon.parse(originalCode, {
       sourceType: 'module',
     });
   } else {
     const transpiled = babel.transform(originalCode, {
       code: false,
+      // filename: absolutePath,
       plugins: [
+        'transform-class-properties',
+        'transform-es2015-classes',
         'transform-es2015-arrow-functions',
         'transform-es2015-destructuring',
         'transform-es2015-modules-commonjs',
+        'transform-flow-strip-types',
         'transform-react-jsx',
+        'syntax-class-properties',
+        'transform-object-rest-spread',
       ],
     });
     ast = transpiled.ast;

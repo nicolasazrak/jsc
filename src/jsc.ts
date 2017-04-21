@@ -4,6 +4,8 @@ import * as fs from  'fs';
 import processJS from  './processors/javascript.js';
 import processCSS from  './processors/css.js';
 import processCSON from  './processors/cson.js';
+import processLESS from  './processors/less.js';
+import processPNG from  './processors/png.js';
 import Resolver from './resolver';
 
 
@@ -27,6 +29,8 @@ const processors = {
   '.js': processJS,
   '.css': processCSS,
   '.cson': processCSON,
+  '.less': processLESS,
+  '.png': processPNG,
 };
 
 
@@ -122,7 +126,8 @@ export default class JSC {
       return;
     }
     if (callStack.indexOf(absolutePath) !== -1) {
-      throw new Error(`Error requiring '${absolutePath}'. It was already required by another module. It has a cyclic dependency`);
+      console.warn(`Warning requiring '${absolutePath}'. It was already required by another module. It has a cyclic dependency.\n ${JSON.stringify(callStack, null, 2)}`);
+      return;
     }
 
     const { dependencies } = this.processFile(dependency, _.last(callStack));
