@@ -5,7 +5,7 @@ import processJS from  './processors/javascript.js';
 import processCSS from  './processors/css.js';
 import processCSON from  './processors/cson.js';
 import processLESS from  './processors/less.js';
-import processPNG from  './processors/png.js';
+import processStaticFile from  './processors/static-file.js';
 import Resolver from './resolver';
 
 
@@ -30,7 +30,9 @@ const processors = {
   '.css': processCSS,
   '.cson': processCSON,
   '.less': processLESS,
-  '.png': processPNG,
+  '.png': processStaticFile,
+  '.ico': processStaticFile,
+  '.svg': processStaticFile,
 };
 
 
@@ -96,7 +98,7 @@ export default class JSC {
   processFile(dependency: Dependency, requiredBy) {
     const { absolutePath } = dependency;
 
-    console.log('Processing ', absolutePath, '<--- Required by ', requiredBy);
+    // console.log('Processing ', absolutePath, '<--- Required by ', requiredBy || '');
     const outPath = path.join('.jsc', absolutePath);
     const metadataPath = path.join('.jsc', `${absolutePath}.metadata.json`);
     const cachedMatadata = this.getMetadataFromCache(outPath, metadataPath, absolutePath);

@@ -9,13 +9,15 @@ export default function processJS({ originalCode, absolutePath }, resolver) {
   let code;
 
   if (absolutePath.includes('/node_modules/')) {
+    // https://github.com/babel/babylon
     ast = babylon.parse(originalCode, {
+      sourceFilename: absolutePath,
       sourceType: 'module',
     });
   } else {
     const transpiled = babel.transform(originalCode, {
       code: false,
-      // filename: absolutePath,
+      filename: absolutePath,
       plugins: [
         'transform-class-properties',
         'transform-es2015-classes',
@@ -36,16 +38,31 @@ export default function processJS({ originalCode, absolutePath }, resolver) {
     CallExpression(nodePath) {
       if (nodePath.node.callee.name === 'require') {
         if (!nodePath.node.arguments[0]) {
-          throw nodePath.buildCodeFrameError('Missing required module');
+          throw new Error('Missing required module');
         }
 
-        if (nodePath.node.arguments[0].type !== 'StringLiteral') {
-          throw nodePath.buildCodeFrameError('Dynamic Imports not supported (yet)');
+        if (nodePath.node.arguments.length > 1) {
+          throw new Error('Require should have only 1 argument');
         }
 
-        const requiredPath = nodePath.node.arguments[0].value;
+        const argument = nodePath.node.arguments[0];
+        if (argument.type === 'BinaryExpression' && argument.operator === '+' && argument.left.type === 'StringLiteral' && argument.right.type === 'Identifier') {
+          const filesInDynamicFolder = resolver.resolveDynamic(absolutePath, argument.left.value);
+          console.warn(`File ${absolutePath} has a dynamic import and there are ${filesInDynamicFolder.length} possible modules to bundle. You probably do not wan't that`);
+          filesInDynamicFolder.forEach(absolutePath => {
+            dependencies.push({ absolutePath });
+          });
+          return;
+        }
+
+        if (argument.type !== 'StringLiteral') {
+          console.log(argument);
+          throw new Error(`Error in: ${absolutePath}. Dynamic Imports not supported (yet)`);
+        }
+
+        const requiredPath = argument.value;
         const resolvedPath = resolver.resolveFilename(absolutePath, requiredPath);
-        nodePath.node.arguments[0].value = resolvedPath; // Replace required module by it's absolute path
+        argument.value = resolvedPath; // Replace required module by it's absolute path
         dependencies.push({ absolutePath: resolvedPath });
       }
     },

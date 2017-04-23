@@ -1,5 +1,5 @@
 const cssToJSContent = `
-  var css = JSON.parse(__CONTENT__),
+  var css = "",
   head = document.head || document.getElementsByTagName('head')[0],
   style = document.createElement('style');
 
@@ -18,7 +18,7 @@ const cssToJSContent = `
 
 export default function processCSS({ originalCode }) {
   return {
-    code: cssToJSContent.replace('__CONTENT__', () => JSON.stringify(originalCode.replace(/\n/g, ''))),
+    code: cssToJSContent.replace('__CONTENT__', () => "''"),
     dependencies: [],
   };
 };

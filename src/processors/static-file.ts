@@ -1,4 +1,4 @@
-export default function processPNG({ originalCode }) {
+export default function processStaticFile({ originalCode }) {
   // TODO
   return {
     code: '',

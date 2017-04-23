@@ -3,6 +3,23 @@ import * as path from 'path';
 import * as resolve from 'resolve';
 
 
+function recursiveReaddirSync(initialPath: string): string[] {
+  var list = [];
+  var files = fs.readdirSync(initialPath);
+  var stats;
+
+  files.forEach(function (file) {
+    stats = fs.lstatSync(path.join(initialPath, file));
+    if(stats.isDirectory()) {
+      list = list.concat(recursiveReaddirSync(path.join(initialPath, file)));
+    } else {
+      list.push(path.join(initialPath, file));
+    }
+  });
+
+  return list;
+}
+
 export default class Resolver {
 
   resolveFilename(from: string, to: string): string {
@@ -29,6 +46,11 @@ export default class Resolver {
     }
 
     return resolved;
+  }
+
+  // This method is really doubtful to work 
+  resolveDynamic(from: string, to: string): string[] {
+    return recursiveReaddirSync(path.join(path.dirname(from), to));
   }
 
 }

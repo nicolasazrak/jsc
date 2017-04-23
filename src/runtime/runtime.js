@@ -1,5 +1,5 @@
 var modules = {};
-
+var global = {};
 var process = {
   env: {
     NODE_ENV: 'DEVELOPMENT'
